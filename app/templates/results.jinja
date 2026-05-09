@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Log Analysis Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gradient-to-br from-slate-100 via-blue-50 to-slate-200 min-h-screen p-8">
+
+    <div class="max-w-7xl mx-auto bg-white border border-gray-200 text-gray-800 p-8 rounded-3xl shadow-2xl">
+
+        <!-- Header -->
+        <div class="grid grid-cols-1 md:grid-cols-2 mb-10">
+            <div>
+                <h1 class="text-4xl font-extrabold mb-2">
+                    📊 Log Analytics Dashboard
+                </h1>
+                <p class="text-gray-600">
+                    Analyze operational logs, monitor failures,
+                    and visualize system behavior.
+                </p>
+            </div>
+            <div class="flex items-start justify-end">
+                <a href="/download-csv"
+                    class="inline-block bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-xl shadow-md transition">
+                    Download CSV Report
+                </a>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-md">
+                <h2 class="text-xl font-bold mb-4">
+                    Log Level Distribution
+                </h2>
+                <canvas id="logLevelChart"></canvas>
+            </div>
+            <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-md">
+                <h2 class="text-xl font-bold mb-4">
+                    Error Per Hour
+                </h2>
+                <canvas id="errorHourChart"></canvas>
+            </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="bg-blue-100 border border-blue-200 p-6 rounded-2xl text-center shadow-md">
+                <h3 class="text-lg font-semibold text-blue-700">
+                    INFO
+                </h3>
+                <p class="text-4xl font-extrabold mt-3 text-blue-800">
+                    {{ analysis['INFO'] }}
+                </p>
+            </div>
+
+            <div class="bg-yellow-100 border border-yellow-200 p-6 rounded-2xl text-center shadow-md">
+                <h3 class="text-lg font-semibold text-yellow-700">
+                    WARNING
+                </h3>
+                <p class="text-4xl font-extrabold mt-3 text-yellow-800">
+                    {{ analysis['WARNING'] }}
+                </p>
+            </div>
+
+            <div class="bg-red-100 border border-red-200 p-6 rounded-2xl text-center shadow-md">
+                <h3 class="text-lg font-semibold text-red-700">
+                    ERROR
+                </h3>
+                <p class="text-4xl font-extrabold mt-3 text-red-800">
+                    {{ analysis['ERROR'] }}
+                </p>
+            </div>
+
+        </div>
+
+        <!-- Logs Section -->
+        <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-md">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
+                <h2 class="text-2xl font-bold">
+                    Parsed Logs
+                </h2>
+                <select id="logFilter"
+                    class="bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-800 shadow-sm">
+                    <option value="ALL">ALL</option>
+                    <option value="INFO">INFO</option>
+                    <option value="WARNING">WARNING</option>
+                    <option value="ERROR">ERROR</option>
+                </select>
+            </div>
+            <div class="overflow-x-auto rounded-xl">
+                <table class="table-auto w-full border-collapse overflow-hidden">
+                    <tr class="bg-gray-800 text-white">
+                        <th class="px-6 py-4 text-left">
+                            Timestamp
+                        </th>
+                        <th class="px-6 py-4 text-left">
+                            Level
+                        </th>
+                        <th class="px-6 py-4 text-left">
+                            Message
+                        </th>
+                    </tr>
+
+                    {% for log in filtered_logs %}
+                    <tr class="log-row hover:bg-gray-100 transition" data-level="{{ log.level }}">
+                        <td class="border-b border-gray-200 px-6 py-3 text-gray-700">
+                            {{ log.timestamp }}
+                        </td>
+                        <td class="
+                            border-b border-gray-200 px-6 py-3 font-semibold
+                            {% if log.level == 'ERROR' %}
+                                text-red-600
+                            {% elif log.level == 'WARNING' %}
+                                text-yellow-600
+                            {% else %}
+                                text-blue-600
+                            {% endif %}
+                        ">
+                            {{ log.level }}
+                        </td>
+                        <td class="border-b border-gray-200 px-6 py-3 text-gray-700">
+                            {{ log.message }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+                <div class="flex justify-between items-center mt-6">
+                    <button id="prevPage" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg">
+                        Prev
+                    </button>
+                    <span id="pageInfo" class="font-semibold text-gray-700">
+                        Page 1
+                    </span>
+                    <button id="nextPage" class="bg-gray-700 hover:bg-gray-800 text-white px-4 py-2 rounded-lg">
+                        Next
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <script>
+        const logLevelCtx = document.getElementById('logLevelChart');
+        new Chart(logLevelCtx, {
+            type: 'pie',
+            data: {
+                labels: ['INFO', 'WARNING', 'ERROR'],
+                datasets: [{
+                    label: 'Log Levels',
+                    data: [
+                        {{ analysis['INFO'] }},
+                {{ analysis['WARNING'] }},
+                        {{ analysis['ERROR'] }}
+                    ]
+                }]
+            }
+        });
+
+        const errorHourChart = document.getElementById('errorHourChart');
+        new Chart(errorHourChart, {
+            type: 'bar',
+            data: {
+                labels: {{ analysis['error_hours'] | tojson | safe }},
+            datasets: [{
+                label: 'Errors Per Hour',
+                data: {{ analysis['error_counts'] | tojson | safe }}
+                }]
+            }
+        });
+    </script>
+
+    <script>
+        const rowsPerPage = 10;
+        const allRows = Array.from(
+            document.querySelectorAll(".log-row")
+        );
+        const filter = document.getElementById("logFilter");
+        let currentPage = 1;
+
+        function renderTable() {
+            const selected = filter.value;
+
+            const filteredRows = allRows.filter(row => {
+                return (
+                    selected === "ALL" ||
+                    row.dataset.level === selected
+                );
+            });
+
+            allRows.forEach(row => {
+                row.style.display = "none";
+            });
+
+            const start = (currentPage - 1) * rowsPerPage;
+
+            const end = start + rowsPerPage;
+
+            filteredRows.forEach((row, index) => {
+                if (index >= start && index < end) {
+                    row.style.display = "";
+                }
+            });
+
+            const totalPages =
+                Math.ceil(filteredRows.length / rowsPerPage);
+            document.getElementById("pageInfo").innerText =
+                `Page ${currentPage} of ${totalPages || 1}`;
+        }
+
+        filter.addEventListener("change", () => {
+            currentPage = 1;
+            renderTable();
+        });
+
+        document.getElementById("nextPage")
+            .addEventListener("click", () => {
+                const selected = filter.value;
+                const filteredRows = allRows.filter(row => {
+                    return (
+                        selected === "ALL" ||
+                        row.dataset.level === selected
+                    );
+                });
+                const totalPages =
+                    Math.ceil(filteredRows.length / rowsPerPage);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    renderTable();
+                }
+            });
+
+        document.getElementById("prevPage")
+            .addEventListener("click", () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    renderTable();
+                }
+            });
+
+        renderTable();
+
+    </script>
+
+    {# <!-- Filtering -->
+    <script>
+        const filter = document.getElementById("logFilter");
+        filter.addEventListener("change", function () {
+            const selected = this.value;
+            const rows = document.querySelectorAll(".log-row");
+            rows.forEach(row => {
+                const level = row.dataset.level;
+                if (selected === "ALL" || level === selected) {
+                    row.style.display = "";
+                } else {
+                    row.style.display = "none";
+                }
+            });
+        });
+    </script>
+
+    <!--Pagination-->
+    <script>
+        const rowsPerPage = 10;
+        const rows = Array.from(document.querySelectorAll(".log-row"));
+        let currentPage = 1;
+
+        function displayRows() {
+            rows.forEach((row, index) => {
+                row.style.display = "none";
+                const start = (currentPage - 1) * rowsPerPage;
+                const end = start + rowsPerPage;
+                if (index >= start && index < end) {
+                    row.style.display = "";
+                }
+            });
+            document.getElementById("pageInfo").innerText =
+                `Page ${currentPage}`;
+        }
+
+        document.getElementById("nextPage")
+            .addEventListener("click", () => {
+                const totalPages =
+                    Math.ceil(rows.length / rowsPerPage);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    displayRows();
+                }
+            });
+
+        document.getElementById("prevPage")
+            .addEventListener("click", () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    displayRows();
+                }
+            });
+        displayRows();
+
+    </script> #}
+
+</body>
+
+</html>
